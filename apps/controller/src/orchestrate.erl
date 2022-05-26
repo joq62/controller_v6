@@ -224,7 +224,8 @@ load_start([{ApplId,ApplVsn}|T],Acc)->
 			  {error,Err}
 		  end;
 	      Err->
-		  {error,Err}
+		   io:format("error creating vm ~p~n",[{?MODULE,?LINE,ApplId, Err}]),
+		   {error,Err}
 	  end,
 
     timer:sleep(2000),
