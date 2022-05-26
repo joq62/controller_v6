@@ -183,7 +183,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 local_loop()->
 %    io:format("nodes() ~p~n",[nodes()]),
-%    io:format("sd:all() ~p~n",[{?MODULE,?LINE,sd:all()}]),
+    io:format("sd:all() ~p~n",[{?MODULE,?LINE,sd:all()}]),
     timer:sleep(?Interval),
     {ok,WantedHost}=inet:gethostname(),
     case rpc:call(node(),controller_server,appl_to_deploy,[],10*1000) of
@@ -195,7 +195,7 @@ local_loop()->
 	%    io:format("ServiceSpecsInfo ~p~n",[{?MODULE,?LINE,ServiceSpecsInfo}]),    
 	    AppsToStart=[{ApplId,ApplVsn}||{ApplId,ApplVsn,_GitPath}<-ServiceSpecsInfo,
 					   []=:=sd:get_host(list_to_atom(ApplId),WantedHost)],
-	 %   io:format("AppsToStart ~p~n",[{?MODULE,?LINE,AppsToStart}]),    
+	    io:format("AppsToStart ~p~n",[{?MODULE,?LINE,AppsToStart}]),    
 %	    StartR=[{{ApplId,ApplVsn},load_start(ApplId,ApplVsn)}||{ApplId,ApplVsn}<-AppsToStart],
 	    
 	   % io:format("StartR ~p~n",[{?MODULE,?LINE,StartR}])
@@ -215,9 +215,11 @@ load_start([{ApplId,ApplVsn}|T],Acc)->
 	      {ok,Vm}->
 		  case controller_server:load_start_appl(ApplId,ApplVsn,Vm) of
 		      ok->
+			  io:format("application started ~p~n",[{?MODULE,?LINE,ApplId,Vm}]),
 			  nodelog_server:log(notice,?MODULE_STRING,?LINE,"application started "++ApplId),
 			  ok;
 		      Err->
+			  io:format("error ~p~n",[{?MODULE,?LINE,ApplId,Vm, Err}]),
 			  nodelog_server:log(notice,?MODULE_STRING,?LINE,"Failed to start "++ApplId),
 			  {error,Err}
 		  end;
