@@ -32,7 +32,6 @@
 %% Returns: non
 %% --------------------------------------------------------------------
 
-
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Initiate the eunit tests, set upp needed processes etc

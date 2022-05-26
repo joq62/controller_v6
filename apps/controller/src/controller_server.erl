@@ -18,10 +18,12 @@
 
 %% --------------------------------------------------------------------
 -define(SERVER,?MODULE).
--define(ControllerEbin,"controller_app/ebin").
+-define(ControllerEbin,"controller/ebin").
 -define(LogDir,"logs").
 %% External exports
 -export([
+	 appl_to_deploy/0,
+
 	 all_specs/0,
 	 create_vm/0,
 	 load_start_appl/3,
@@ -47,7 +49,7 @@
 
 -record(state, {
 		vm_list,
-		service_specs_info
+		appl_to_deploy
 	       }).
 
 %% ====================================================================
@@ -169,6 +171,17 @@ load_read_specs()->
 %% @returns:State#state.service_specs_info
 %%
 %%---------------------------------------------------------------
+appl_to_deploy()->
+    gen_server:call(?SERVER,{appl_to_deploy},infinity).
+    
+
+%%---------------------------------------------------------------
+%% Function:all_specs()
+%% @doc: all service specs infromation       
+%% @param: non 
+%% @returns:State#state.service_specs_info
+%%
+%%---------------------------------------------------------------
 -spec all_specs()-> [term()].
 all_specs()->
     gen_server:call(?SERVER, {all_specs},infinity).
@@ -210,11 +223,11 @@ init([]) ->
     nodelog_server:create(?LogDir),
     io:format("sd_app ~p~n",[application:start(sd_app)]),
     io:format("config ~p~n",[application:start(config_app)]),
-    Info=lib_appl:service_specs_info(),
+    ApplToDeploy=config:deployment_appl_to_deploy(node()),
     ok= nodelog_server:log(notice,?MODULE_STRING,?LINE,"server started"),
 
     {ok, #state{ vm_list=[],
-		 service_specs_info=Info}
+		 appl_to_deploy=ApplToDeploy}
     }.
 
 %% --------------------------------------------------------------------
@@ -276,10 +289,10 @@ handle_call({load_start_appl,ApplId,ApplVsn,Node},_From, State) ->
 		  {error,[eexists,Node]};
 	      true->
 		 % case lists:keyfind({ApplId,ApplVsn},1,State#state.service_specs_info) of
-		  case config:find(ApplId,ApplVsn) of
-		      false->
-			  {error,[eexists,ApplId,ApplVsn]};
-		      {ApplId,_VsnList,GitPath}->
+		  case config:application_gitpath(ApplId) of
+		       {error,Err}->
+			  {error,Err};
+		      {ok,GitPath}->
 			  case rpc:call(Node,service,load,[ApplId,ApplVsn,GitPath],20*5000) of
 			      {error,Reason}->
 				  {error,Reason};
@@ -305,12 +318,12 @@ handle_call({stop_unload_appl,ApplId,ApplVsn,Node},_From, State) ->
     {reply, Reply, State};
 
 
-handle_call({all_specs},_From, State) ->
-    Reply=State#state.service_specs_info,
+handle_call({appl_to_deploy},_From, State) ->
+    Reply=State#state.appl_to_deploy,
     {reply, Reply, State};
 
 handle_call({get_spec,Name,Vsn},_From, State) ->
-    Reply=lib_appl:get_spec(Name,Vsn,State#state.service_specs_info),
+    Reply=lib_appl:get_spec(Name,Vsn,State#state.appl_to_deploy),
     {reply, Reply, State};
 
 handle_call({ping},_From, State) ->
