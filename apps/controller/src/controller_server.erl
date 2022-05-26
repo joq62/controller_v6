@@ -18,7 +18,7 @@
 
 %% --------------------------------------------------------------------
 -define(SERVER,?MODULE).
--define(ControllerEbin,"controller").
+-define(ControllerEbin,"controller/ebin").
 -define(LogDir,"logs").
 %% External exports
 -export([
