@@ -39,12 +39,15 @@
 %% Returns: non
 %% --------------------------------------------------------------------
 create(NodeName)->
+
     {ok,HostName}=net:gethostname(),
     Cookie=atom_to_list(erlang:get_cookie()),
     PaArgs=" ",
     EnvArgs=" ",
     Result=create(HostName,NodeName,Cookie,PaArgs,EnvArgs),
     Result.
+
+
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Initiate the eunit tests, set upp needed processes etc
@@ -54,20 +57,21 @@ create(NodeName)->
 create(HostName,NodeName,Cookie,PaArgs,EnvArgs)->
   %  io:format("HostName ~p~n",[HostName]),
   %  io:format("NodeName ~p~n",[NodeName]),
-  %  io:format("PaArgs ~p~n",[PaArgs]),
+  %  io:format("PaArgs ~p~n",[{PaArgs,?MODULE,?LINE}]),
   %  io:format("Cookie ~p~n",[Cookie]),
   %  io:format("EnvArgs ~p~n",[EnvArgs]),
     
+
     Args=PaArgs++" "++"-setcookie "++Cookie++" "++EnvArgs,
     Result=case slave:start(HostName,NodeName,Args) of
 	       {error,Reason}->
-		   {error,[Reason,?MODULE,?LINE]};
+		   {error,[Reason]};
 	       {ok,SlaveNode}->
 		   case net_kernel:connect_node(SlaveNode) of
 		       false->
-			   {error,[failed_connect,SlaveNode,?MODULE,?LINE]};
+			   {error,[failed_connect,SlaveNode]};
 		       ignored->
-			   {error,[ignored,SlaveNode,?MODULE,?LINE]};
+			   {error,[ignored,SlaveNode]};
 		       true->
 			   {ok,SlaveNode}
 		   end

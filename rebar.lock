@@ -8,7 +8,7 @@
   0},
  {<<"nodelog">>,
   {git,"https://github.com/joq62/nodelog.git",
-       {ref,"11d18624be25fc0de3220fe3490190bb288ecff7"}},
+       {ref,"19b33a2c02fc8a7cd0c5353e7d28ad90b431aca4"}},
   0},
  {<<"sd_app">>,
   {git,"https://github.com/joq62/sd_app.git",

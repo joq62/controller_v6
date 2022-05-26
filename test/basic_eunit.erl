@@ -27,7 +27,7 @@ start()->
     pong=service:ping(),
     pong=orchestrate:ping(),
     timer:sleep(5000),
-    io:format("AllApplications ~p~n",[application:which_applications()]),
+ %   io:format("AllApplications ~p~n",[application:which_applications()]),
     
   %  ok=t1_test(),
    % ok=t2_test(),

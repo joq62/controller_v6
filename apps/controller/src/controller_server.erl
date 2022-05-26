@@ -218,13 +218,21 @@ ping()->
 %% --------------------------------------------------------------------
 init([]) ->
   
-    io:format("common ~p~n",[application:start(common)]),
-    io:format("nodelog ~p~n",[application:start(nodelog)]),
+ %   io:format("common ~p~n",[application:start(common)]),
+ %   io:format("nodelog ~p~n",[application:start(nodelog)]),
+ %   nodelog_server:create(?LogDir),
+%    io:format("sd_app ~p~n",[application:start(sd_app)]),
+ %   io:format("config ~p~n",[application:start(config_app)]),
+
+    CommonR=application:start(common),
+    ok=application:start(nodelog),
     nodelog_server:create(?LogDir),
-    io:format("sd_app ~p~n",[application:start(sd_app)]),
-    io:format("config ~p~n",[application:start(config_app)]),
+    nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Result start common ",CommonR}),
+    nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Result start sd_app ",application:start(sd_app)}),
+    nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Result start config_app ",application:start(config_app)}),
+
     ApplToDeploy=config:deployment_appl_to_deploy(node()),
-    ok= nodelog_server:log(notice,?MODULE_STRING,?LINE,"server started"),
+    nodelog_server:log(notice,?MODULE_STRING,?LINE,"server successfully started"),
 
     {ok, #state{ vm_list=[],
 		 appl_to_deploy=ApplToDeploy}
@@ -245,15 +253,22 @@ handle_call({create_vm},_From, State) ->
     UniqueNodeName=integer_to_list(erlang:system_time(microsecond),36),
     Reply=case lib_vm:create(UniqueNodeName) of
 	      {error,Reason}->
+		  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"failed to create vm ",error,Reason}),
 		  NewState=State,
 		  {error,Reason};
 	      {ok,Vm}->
-		  case {rpc:call(Vm,code,add_patha,["ebin"],5000),rpc:call(Vm,code,add_patha,[?ControllerEbin],5000)} of
-		      {{error,_},{error,_}}->
+		  case rpc:call(Vm,code,add_patha,[?ControllerEbin],5000) of
+		      {error,Reason}->
+			  nodelog_server:log(warning,?MODULE_STRING,?LINE,{error,Reason}),
 			  rpc:call(Vm,init,stop,[],5000),
 			  NewState=State,
-			  {error,bad_directory};
-		      _->
+			  {error,Reason};
+		      {badrpc,Reason}->
+			  nodelog_server:log(warning,?MODULE_STRING,?LINE,{badrpc,Reason}),
+			  rpc:call(Vm,init,stop,[],5000),
+			  NewState=State,
+			  {badrpc,Reason};
+		      true->
 			  case rpc:call(Vm,application,start,[nodelog],5000) of
 			      ok->
 				  rpc:call(Vm,nodelog_server,create,[?LogDir],5000),
@@ -262,13 +277,16 @@ handle_call({create_vm},_From, State) ->
 				  case rpc:call(Vm,application,start,[service_app],5000) of
 				      ok->
 					  NewState=State#state{vm_list=[Vm|State#state.vm_list]},
+					  nodelog_server:log(notice,?MODULE_STRING,?LINE,{"vm succesfully started ", Vm}),
 					  {ok,Vm};
 				      {error,Reason}->
+					  nodelog_server:log(warning,?MODULE_STRING,?LINE,{error,Reason}),
 					  rpc:call(Vm,init,stop,[],5000),
 					  NewState=State,
 					  {error,Reason}
 				  end;
-			      {error,Reason}->
+			      {Error,Reason}->
+				  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Failed to start nodelog ",Error,Reason}),
 				  rpc:call(Vm,init,stop,[],5000),
 				  NewState=State,
 				  {error,Reason}
@@ -291,18 +309,28 @@ handle_call({delete_vm,Vm},_From, State) ->
 handle_call({load_start_appl,ApplId,ApplVsn,Node},_From, State) ->
     Reply=case lists:member(Node,State#state.vm_list) of
 	      false->
+		  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Node not started/running ",{error,[eexists,Node]}}),
 		  {error,[eexists,Node]};
 	      true->
-		 % case lists:keyfind({ApplId,ApplVsn},1,State#state.service_specs_info) of
 		  case config:application_gitpath(ApplId) of
 		       {error,Err}->
+			  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Error when geting gitpath to application ",ApplId,' ', {error,Err}}),
 			  {error,Err};
 		      {ok,GitPath}->
 			  case rpc:call(Node,service,load,[ApplId,ApplVsn,GitPath],20*5000) of
 			      {error,Reason}->
+				  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Error when loading service ",ApplId,' ', {error,Reason}}),
 				  {error,Reason};
 			      ok ->
-				 rpc:call(Node,service,start,[ApplId,ApplVsn],20*5000) 
+				  nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Application  succesfully loaded ",ApplId,' ',ApplVsn,' ',Node}),
+				  case rpc:call(Node,service,start,[ApplId,ApplVsn],20*5000) of
+				      ok->
+					  nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Application  succesfully started ",ApplId,' ',ApplVsn,' ',Node}),
+					  ok;
+				      Error ->
+					  nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Error whenstarting application ",ApplId,' ',Error}),
+					  Error					      
+				  end
 			  end	
 		  end	  
 	  end,

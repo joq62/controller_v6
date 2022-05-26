@@ -1,7 +1,8 @@
 all:
 	rm -rf  *~ */*~ apps/controller/src/*.beam test/*.beam erl_cra*;
 	rm -rf  logs *.service_dir rebar.lock;
-	rm -rf _build test_ebin ebin *_info_specs;		
+	rm -rf _build test_ebin ebin *_info_specs;
+	rm -rf controller;
 	mkdir ebin;		
 	rebar3 compile;	
 	cp _build/default/lib/*/ebin/* ebin;
@@ -15,6 +16,7 @@ eunit:
 	rm -rf _build logs log *.service_dir *_info_specs;
 	rm -rf rebar.lock;
 	rm -rf ebin;
+	rm -rf controller;
 	mkdir  application_info_specs;
 	cp ../application_info_specs/*.spec application_info_specs;
 	mkdir  host_info_specs;
@@ -23,7 +25,10 @@ eunit:
 	cp ../deployment_info_specs/*.depl deployment_info_specs;
 	mkdir test_ebin;
 	mkdir ebin;
+	mkdir controller;
+	mkdir controller/ebin;
 	rebar3 compile;
 	cp _build/default/lib/*/ebin/* ebin;
+	cp _build/default/lib/*/ebin/* controller/ebin;
 	erlc -o test_ebin test/*.erl;
 	erl -pa ebin -pa test_ebin -sname controller -run basic_eunit start -setcookie cookie_test

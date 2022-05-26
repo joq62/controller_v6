@@ -182,29 +182,24 @@ code_change(_OldVsn, State, _Extra) ->
 %{{AppId,ApplVsn},GitPath}
 
 local_loop()->
-%    io:format("nodes() ~p~n",[nodes()]),
-    io:format("sd:all() ~p~n",[{?MODULE,?LINE,sd:all()}]),
     timer:sleep(?Interval),
     {ok,WantedHost}=inet:gethostname(),
     case rpc:call(node(),controller_server,appl_to_deploy,[],10*1000) of
-	{badrpc,Err}->
-	    ok= nodelog_server:log(notice,?MODULE_STRING,?LINE,"badrpc"),
-	  %  io:format("badrpc ~p~n",[{?MODULE,?LINE,Err}]),    
+	{badrpc,Reason}->
+	    nodelog_server:log(warning,?MODULE_STRING,?LINE,{"No/late response from  controller_server ",{badrpc,Reason}}),
 	    ok;
 	ServiceSpecsInfo->
-	%    io:format("ServiceSpecsInfo ~p~n",[{?MODULE,?LINE,ServiceSpecsInfo}]),    
 	    AppsToStart=[{ApplId,ApplVsn}||{ApplId,ApplVsn,_GitPath}<-ServiceSpecsInfo,
 					   []=:=sd:get_host(list_to_atom(ApplId),WantedHost)],
-	    io:format("AppsToStart ~p~n",[{?MODULE,?LINE,AppsToStart}]),    
-%	    StartR=[{{ApplId,ApplVsn},load_start(ApplId,ApplVsn)}||{ApplId,ApplVsn}<-AppsToStart],
-	    
-	   % io:format("StartR ~p~n",[{?MODULE,?LINE,StartR}])
-	    load_start(AppsToStart,[])
+	    case AppsToStart of
+		[]->
+		    ok;
+		AppsToStart->
+		    nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Missing applications ",AppsToStart}),
+		    load_start(AppsToStart,[])
+	    end
     end,
-   
-    
-
-    rpc:cast(node(),?MODULE,loop,[]).
+   rpc:cast(node(),?MODULE,loop,[]).
 		  
 
 load_start([],Result)->
@@ -215,16 +210,14 @@ load_start([{ApplId,ApplVsn}|T],Acc)->
 	      {ok,Vm}->
 		  case controller_server:load_start_appl(ApplId,ApplVsn,Vm) of
 		      ok->
-			  io:format("application started ~p~n",[{?MODULE,?LINE,ApplId,Vm}]),
-			  nodelog_server:log(notice,?MODULE_STRING,?LINE,"application started "++ApplId),
+			  nodelog_server:log(notice,?MODULE_STRING,?LINE,{"Application started ",ApplId,' ',Vm}),
 			  ok;
 		      Err->
-			  io:format("error ~p~n",[{?MODULE,?LINE,ApplId,Vm, Err}]),
-			  nodelog_server:log(notice,?MODULE_STRING,?LINE,"Failed to start "++ApplId),
+			  nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Failed to start ",ApplId,' ',Vm,' ',Err}),
 			  {error,Err}
 		  end;
 	      Err->
-		   io:format("error creating vm ~p~n",[{?MODULE,?LINE,ApplId, Err}]),
+		   nodelog_server:log(warning,?MODULE_STRING,?LINE,{"Failed to created vm  ",Err}),
 		   {error,Err}
 	  end,
 
