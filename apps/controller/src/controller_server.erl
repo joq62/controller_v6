@@ -244,6 +244,9 @@ init([]) ->
 handle_call({create_vm},_From, State) ->
     UniqueNodeName=integer_to_list(erlang:system_time(microsecond),36),
     Reply=case lib_vm:create(UniqueNodeName) of
+	      {error,Reason}->
+		  NewState=State,
+		  {error,Reason};
 	      {ok,Vm}->
 		  case {rpc:call(Vm,code,add_patha,["ebin"],5000),rpc:call(Vm,code,add_patha,[?ControllerEbin],5000)} of
 		      {{error,_},{error,_}}->
@@ -260,13 +263,15 @@ handle_call({create_vm},_From, State) ->
 				      ok->
 					  NewState=State#state{vm_list=[Vm|State#state.vm_list]},
 					  {ok,Vm};
-				      {error,_Reason}->
+				      {error,Reason}->
 					  rpc:call(Vm,init,stop,[],5000),
-					  NewState=State
+					  NewState=State,
+					  {error,Reason}
 				  end;
-			      {error,_Reason}->
+			      {error,Reason}->
 				  rpc:call(Vm,init,stop,[],5000),
-				  NewState=State
+				  NewState=State,
+				  {error,Reason}
 			  end			 
 		  end
 	  end,
